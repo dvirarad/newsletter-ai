@@ -1,7 +1,7 @@
 import { PROVIDERS, TIMEFRAMES } from "../../constants";
 import { card, btnG, btnSec } from "../../styles";
 
-export default function GenerateStep({ provider, selectedModel, newsletters, sources, timeframe, language, tone, generating, genProgress, result, error, copied, streaming, onGenerate, onDownload, onCopy, onReset, onCancel, onBack }) {
+export default function GenerateStep({ provider, selectedModel, newsletters, sources, timeframe, language, tone, generating, genProgress, result, error, copied, streaming, onGenerate, onDownload, onCopy, onReset, onCancel, onBack, linkedinPost, imagePrompt, generatingLinkedin, onGenerateLinkedin }) {
   const P = PROVIDERS[provider];
   return (
     <div>
@@ -66,6 +66,41 @@ export default function GenerateStep({ provider, selectedModel, newsletters, sou
               .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer" style="color:#fbbf24;text-decoration:none;border-bottom:1px solid rgba(251,191,36,0.3)">$1</a>')
               .replace(/\n/g, "<br/>")
             }} />
+
+          {!linkedinPost && !generatingLinkedin && (
+            <button onClick={onGenerateLinkedin}
+              style={{ marginTop: 16, background: "linear-gradient(135deg, #b45309, #fbbf24)", color: "#0f0f1a", border: "none", padding: "14px 28px", fontSize: 15, fontWeight: 700, fontFamily: "'Rubik'", borderRadius: 12, cursor: "pointer", boxShadow: "0 4px 20px rgba(251,191,36,0.3)", transition: "all .3s" }}
+              onMouseEnter={(e) => { e.target.style.transform = "translateY(-2px)"; e.target.style.boxShadow = "0 8px 32px rgba(251,191,36,0.5)"; }}
+              onMouseLeave={(e) => { e.target.style.transform = "none"; e.target.style.boxShadow = "0 4px 20px rgba(251,191,36,0.3)"; }}
+            >💼 פוסט לינקדאין</button>
+          )}
+
+          {generatingLinkedin && (
+            <div style={{ marginTop: 16, display: "flex", alignItems: "center", gap: 10, color: "#fbbf24", fontSize: 14, fontWeight: 600 }}>
+              <div style={{ width: 18, height: 18, border: "2px solid #fbbf24", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 1s linear infinite" }} />
+              יוצר פוסט...
+            </div>
+          )}
+
+          {linkedinPost && (
+            <div style={{ marginTop: 24, animation: "fadeInUp .5s ease-out" }}>
+              <div style={{ background: "rgba(251,191,36,0.05)", border: "1px solid rgba(251,191,36,0.2)", borderRadius: 14, padding: 24, marginBottom: 16 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: "#fbbf24" }}>💼 פוסט לינקדאין</div>
+                  <button onClick={() => { navigator.clipboard.writeText(linkedinPost); }} style={{ ...btnSec, fontSize: 13, padding: "6px 14px" }}>📋 העתקה</button>
+                </div>
+                <div style={{ color: "#d6d3d1", fontSize: 15, lineHeight: 1.8, whiteSpace: "pre-wrap" }}>{linkedinPost}</div>
+              </div>
+
+              <div style={{ background: "rgba(251,191,36,0.05)", border: "1px solid rgba(251,191,36,0.2)", borderRadius: 14, padding: 24 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: "#fbbf24" }}>🎨 פרומפט לתמונה</div>
+                  <button onClick={() => { navigator.clipboard.writeText(imagePrompt); }} style={{ ...btnSec, fontSize: 13, padding: "6px 14px" }}>📋 העתקה</button>
+                </div>
+                <div style={{ color: "#a8a29e", fontSize: 14, lineHeight: 1.7, whiteSpace: "pre-wrap", fontFamily: "'JetBrains Mono', monospace" }}>{imagePrompt}</div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

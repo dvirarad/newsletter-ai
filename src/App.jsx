@@ -40,6 +40,9 @@ export default function App() {
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
   const [streaming, setStreaming] = useState(false);
+  const [linkedinPost, setLinkedinPost] = useState("");
+  const [imagePrompt, setImagePrompt] = useState("");
+  const [generatingLinkedin, setGeneratingLinkedin] = useState(false);
   const abortRef = useRef(null);
   const saveTimerRef = useRef(null);
 
@@ -223,6 +226,36 @@ CRITICAL - SOURCE LINKS:
     if (abortRef.current) abortRef.current.abort();
   };
 
+  const generateLinkedin = async () => {
+    setGeneratingLinkedin(true);
+    setLinkedinPost("");
+    setImagePrompt("");
+    const lang = language === "he" ? "Hebrew" : "English";
+    const sys = `You are a LinkedIn content strategist. Given a newsletter, identify the single most interesting/engaging idea and write a compelling LinkedIn post about it.
+
+Rules:
+- Write the post in ${lang}
+- Keep it 150-250 words — punchy, with a hook opening
+- Use short paragraphs (1-2 sentences each) for mobile readability
+- End with a thought-provoking question or call to action
+- No hashtags in the body; add 3-5 relevant hashtags at the end
+- Do NOT include links (the user will add their own)
+
+Also generate an image prompt (in English) for an AI image generator that would make a compelling visual for this LinkedIn post. The prompt should describe a clean, professional, visually striking image suitable for LinkedIn.
+
+Return ONLY valid JSON: {"post": "...", "imagePrompt": "..."}`;
+    try {
+      const raw = await callLLM(provider, apiKey, selectedModel, sys, result, false);
+      const clean = raw.replace(/```json|```/g, "").trim();
+      const parsed = JSON.parse(clean);
+      setLinkedinPost(parsed.post || "");
+      setImagePrompt(parsed.imagePrompt || "");
+    } catch (e) {
+      setError(getUserMessage(e));
+    }
+    setGeneratingLinkedin(false);
+  };
+
   const download = () => {
     const b = new Blob([result], { type: "text/markdown;charset=utf-8" });
     const u = URL.createObjectURL(b);
@@ -244,7 +277,8 @@ CRITICAL - SOURCE LINKS:
           {step === 2 && <UploadStep newsletters={newsletters} error={error} onFiles={handleFiles} onRemove={(i) => setNewsletters((p) => p.filter((_, j) => j !== i))} />}
           {step === 3 && <SourcesStep sources={sources} setSources={setSources} sourceInput={sourceInput} setSourceInput={setSourceInput} searchQuery={searchQuery} setSearchQuery={setSearchQuery} searchResults={searchResults} searching={searching} onSearch={searchSources} onAddSource={addSource} />}
           {step === 4 && <SettingsStep timeframe={timeframe} setTimeframe={setTimeframe} selectedTopics={selectedTopics} setSelectedTopics={setSelectedTopics} language={language} setLanguage={setLanguage} tone={tone} setTone={setTone} />}
-          {step === 5 && <GenerateStep provider={provider} selectedModel={selectedModel} newsletters={newsletters} sources={sources} timeframe={timeframe} language={language} tone={tone} generating={generating} genProgress={genProgress} result={result} error={error} copied={copied} streaming={streaming} onGenerate={generate} onDownload={download} onCopy={() => { navigator.clipboard.writeText(result); setCopied(true); setTimeout(() => setCopied(false), 2000); }} onReset={() => { setResult(""); setGenProgress(0); }} onCancel={handleCancel} onBack={() => setStep(4)} />}
+          {step === 5 && <GenerateStep provider={provider} selectedModel={selectedModel} newsletters={newsletters} sources={sources} timeframe={timeframe} language={language} tone={tone} generating={generating} genProgress={genProgress} result={result} error={error} copied={copied} streaming={streaming} onGenerate={generate} onDownload={download} onCopy={() => { navigator.clipboard.writeText(result); setCopied(true); setTimeout(() => setCopied(false), 2000); }} onReset={() => { setResult(""); setGenProgress(0); setLinkedinPost(""); setImagePrompt(""); }}
+              linkedinPost={linkedinPost} imagePrompt={imagePrompt} generatingLinkedin={generatingLinkedin} onGenerateLinkedin={generateLinkedin} onCancel={handleCancel} onBack={() => setStep(4)} />}
           {step >= 1 && step <= 4 && <WizardNav step={step} setStep={setStep} keyValid={keyValid} newsletterCount={newsletters.length} />}
         </div>
       </div>
