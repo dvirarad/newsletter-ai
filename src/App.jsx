@@ -33,8 +33,9 @@ const PROVIDERS = {
     id: "openai", name: "GPT (OpenAI)", icon: "◈", color: "#74aa9c",
     placeholder: "sk-proj-...", prefix: "sk-",
     models: [
-      { id: "gpt-4o", label: "GPT-4o", desc: "מהיר ומדויק", badge: "מומלץ" },
-      { id: "gpt-4.1", label: "GPT-4.1", desc: "הדור החדש", badge: null },
+      { id: "gpt-4o", label: "GPT-4o", desc: "מהיר וחסכוני", badge: null },
+      { id: "gpt-5.2", label: "GPT-5.2", desc: "חכם ומדויק", badge: "מומלץ" },
+      { id: "gpt-5.3", label: "GPT-5.3", desc: "החזק ביותר", badge: "חדש" },
     ],
   },
 };
@@ -173,8 +174,37 @@ export default function App() {
     const tf = TIMEFRAMES.find((t) => t.id === timeframe)?.label || "שבוע";
     const lang = language === "he" ? "עברית" : "אנגלית";
     const tn = tone === "casual" ? "קליל ואישי" : tone === "pro" ? "מקצועי" : "הומוריסטי";
-    const sys = `You are an expert AI newsletter writer. Analyze style from examples, search latest AI news, write a complete newsletter in that exact style.\nRules:\n- Write in ${lang}, Tone: ${tn}\n- Match structure, sections, formatting and voice EXACTLY\n- Real current news from ${tf}\n- Focus: ${selectedTopics.length ? selectedTopics.join(", ") : "all relevant AI topics"}\n- Authentic, personal, not generated-sounding\n- Numbered news, deep dives, tool recs, closing meme\n- Hebrew: natural spoken, not academic\n\nCRITICAL - SOURCE LINKS:\n- Every news item MUST include at least one source link in markdown format: [source name](URL)\n- Place the link naturally at the end of each item, e.g. "([מקור](https://...))" or "קראו עוד: [TechCrunch](https://...)"\n- For deep-dive sections ("שלושה דברים גדולים" or equivalent), include 1-2 links per story\n- For short news items ("חדשות בקצרה" or equivalent), include at least 1 link each\n- For tool/product recommendations, link directly to the product page\n- Use REAL URLs from your web search results — never make up URLs\n- Prefer original sources (company blogs, official announcements) over aggregators`;
-    const usr = `Examples:\n\n${examples}\n\nSources: ${sources.length ? sources.join("\n") : "Best AI news sources"}\n\nWrite FULL newsletter for today (${new Date().toLocaleDateString("he-IL")}) covering AI news from ${tf}. All sections.\n\nREMINDER: Every news item must include at least one real source link in [name](url) markdown format. Use the URLs from your web search.`;
+    const sys = `You are an expert AI newsletter ghostwriter. Your #1 job is to perfectly imitate the writing style from the examples provided. You must sound IDENTICAL to the original author.
+
+STYLE CLONING (THIS IS THE MOST IMPORTANT PART):
+Before writing, analyze the examples carefully and extract:
+1. STRUCTURE: What sections exist? What are their exact names? How many items per section? Copy the section structure exactly.
+2. OPENING: How does the author open? Personal anecdote? Provocative statement? Copy the pattern.
+3. SENTENCE STYLE: Short or long sentences? Parenthetical asides? Rhetorical questions? Match exactly.
+4. TONE MARKERS: Specific phrases the author repeats (e.g. "שורה תחתונה", "ממליץ בחום"). Reuse these exact phrases.
+5. HUMOR TYPE: Self-deprecating? Sarcastic? Pop culture references? Match the humor style.
+6. FORMATTING: Bold usage, emoji usage, numbered vs bulleted, paragraph length. Copy exactly.
+7. LANGUAGE MIX: How much English is mixed in? When? Copy the pattern.
+8. READER ADDRESS: How does the author speak to readers? "אתם"? "תשלחו"? Match exactly.
+9. SIGN-OFF: How does the newsletter end? Copy the pattern.
+
+Write the newsletter AS IF YOU ARE THE ORIGINAL AUTHOR. Do not add your own style. Do not be more formal or less formal than the examples. Do not add sections that don't exist in the examples. Do not skip sections that do exist.
+
+Additional rules:
+- Write in ${lang}, Tone: ${tn}
+- Real current news from ${tf}
+- Focus: ${selectedTopics.length ? selectedTopics.join(", ") : "all relevant AI topics"}
+- Hebrew: natural spoken, not academic (if the examples are in spoken Hebrew)
+
+CRITICAL - SOURCE LINKS:
+- Every news item MUST include at least one source link in markdown format: [source name](URL)
+- Place the link naturally at the end of each item, e.g. "([מקור](https://...))" or "קראו עוד: [TechCrunch](https://...)"
+- For deep-dive sections, include 1-2 links per story
+- For short news items, include at least 1 link each
+- For tool/product recommendations, link directly to the product page
+- Use REAL URLs from your web search results — never make up URLs
+- Prefer original sources (company blogs, official announcements) over aggregators`;
+    const usr = `HERE ARE THE EXAMPLE NEWSLETTERS — STUDY THEM CAREFULLY AND CLONE THE STYLE EXACTLY:\n\n${examples}\n\nSources to check: ${sources.length ? sources.join("\n") : "Best AI news sources"}\n\nNow write a FULL newsletter for today (${new Date().toLocaleDateString("he-IL")}) covering AI news from the ${tf}.\n\nCRITICAL REMINDERS:\n1. Your output must look like it was written by the SAME PERSON who wrote the examples above. Same section names, same structure, same voice.\n2. Every news item must include at least one real source link in [name](url) format from your web search.\n3. Write ALL sections from opening to closing, exactly matching the example structure.`;
     try {
       setGenProgress(15);
       const txt = await callLLM(sys, usr, true);
