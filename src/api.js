@@ -1,5 +1,7 @@
 import { ApiError, RateLimitError, AuthError, NetworkError, TimeoutError } from "./errors";
 
+const OPENAI_SEARCH_FALLBACKS = ["gpt-5-nano", "gpt-4o"];
+
 function classifyError(status, message) {
   if (status === 401 || status === 403) throw new AuthError(message);
   if (status === 429) throw new RateLimitError(message);
@@ -51,6 +53,18 @@ export async function fetchWithRetry(url, options, { maxRetries = 2, timeoutMs =
   throw lastError;
 }
 
+async function openaiSearchRequest(apiKey, model, sys, usr) {
+  const body = { model, max_output_tokens: 4000, input: [{ role: "developer", content: sys }, { role: "user", content: usr }], tools: [{ type: "web_search_preview" }] };
+  const r = await fetchWithRetry("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey.trim()}` },
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) { const d = await r.json().catch(() => ({})); classifyError(r.status, d?.error?.message || `Error ${r.status}`); }
+  const data = await r.json();
+  return (data.output || []).flatMap((o) => (o.content || []).filter((c) => c.type === "output_text").map((c) => c.text)).join("\n\n") || "";
+}
+
 export async function callLLM(provider, apiKey, model, sys, usr, search = false) {
   if (provider === "anthropic") {
     const body = { model, max_tokens: 4000, system: sys, messages: [{ role: "user", content: usr }] };
@@ -64,15 +78,17 @@ export async function callLLM(provider, apiKey, model, sys, usr, search = false)
     const data = await r.json();
     return data.content.filter((b) => b.type === "text").map((b) => b.text).join("\n\n");
   } else if (search) {
-    const body = { model, max_output_tokens: 4000, input: [{ role: "developer", content: sys }, { role: "user", content: usr }], tools: [{ type: "web_search_preview" }] };
-    const r = await fetchWithRetry("https://api.openai.com/v1/responses", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey.trim()}` },
-      body: JSON.stringify(body),
-    });
-    if (!r.ok) { const d = await r.json().catch(() => ({})); classifyError(r.status, d?.error?.message || `Error ${r.status}`); }
-    const data = await r.json();
-    return (data.output || []).flatMap((o) => (o.content || []).filter((c) => c.type === "output_text").map((c) => c.text)).join("\n\n") || "";
+    const models = [model, ...OPENAI_SEARCH_FALLBACKS.filter((m) => m !== model)];
+    let lastErr;
+    for (const m of models) {
+      try {
+        return await openaiSearchRequest(apiKey, m, sys, usr);
+      } catch (e) {
+        if (e.name === "AuthError" || e.name === "RateLimitError") throw e;
+        lastErr = e;
+      }
+    }
+    throw lastErr;
   } else {
     const body = { model, max_completion_tokens: 4000, messages: [{ role: "system", content: sys }, { role: "user", content: usr }] };
     const r = await fetchWithRetry("https://api.openai.com/v1/chat/completions", {
@@ -167,14 +183,27 @@ export async function callLLMStreaming(provider, apiKey, model, sys, usr, search
     }
     flushBuffer();
   } else if (search) {
-    const body = { model, max_output_tokens: 4000, input: [{ role: "developer", content: sys }, { role: "user", content: usr }], tools: [{ type: "web_search_preview" }], stream: true };
-    const r = await fetchWithTimeout("https://api.openai.com/v1/responses", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey.trim()}` },
-      body: JSON.stringify(body),
-      signal,
-    }, 180000);
-    if (!r.ok) { const d = await r.json().catch(() => ({})); classifyError(r.status, d?.error?.message || `Error ${r.status}`); }
+    const models = [model, ...OPENAI_SEARCH_FALLBACKS.filter((m) => m !== model)];
+    let r;
+    let lastErr;
+    for (const m of models) {
+      try {
+        const body = { model: m, max_output_tokens: 4000, input: [{ role: "developer", content: sys }, { role: "user", content: usr }], tools: [{ type: "web_search_preview" }], stream: true };
+        r = await fetchWithTimeout("https://api.openai.com/v1/responses", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey.trim()}` },
+          body: JSON.stringify(body),
+          signal,
+        }, 180000);
+        if (!r.ok) { const d = await r.json().catch(() => ({})); classifyError(r.status, d?.error?.message || `Error ${r.status}`); }
+        break;
+      } catch (e) {
+        if (e.name === "AuthError" || e.name === "RateLimitError") throw e;
+        lastErr = e;
+        r = null;
+      }
+    }
+    if (!r) throw lastErr;
 
     const reader = r.body.getReader();
     const decoder = new TextDecoder();

@@ -83,6 +83,54 @@ describe("callLLM", () => {
     expect(url).toBe("https://api.openai.com/v1/chat/completions");
     expect(result).toBe("no search");
   });
+
+  it("falls back to gpt-5-nano when primary model fails search", async () => {
+    vi.stubGlobal("fetch", vi.fn()
+      .mockResolvedValueOnce({ ok: false, status: 500, json: () => Promise.resolve({ error: { message: "model unsupported" } }) })
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ output: [{ content: [{ type: "output_text", text: "fallback result" }] }] }) }),
+    );
+    const result = await callLLM("openai", "sk-proj-test", "gpt-5.3", "sys", "usr", true);
+    expect(result).toBe("fallback result");
+    expect(fetch).toHaveBeenCalledTimes(2);
+    const body1 = JSON.parse(fetch.mock.calls[0][1].body);
+    const body2 = JSON.parse(fetch.mock.calls[1][1].body);
+    expect(body1.model).toBe("gpt-5.3");
+    expect(body2.model).toBe("gpt-5-nano");
+  });
+
+  it("falls back to gpt-4o when primary and gpt-5-nano both fail search", async () => {
+    vi.stubGlobal("fetch", vi.fn()
+      .mockResolvedValueOnce({ ok: false, status: 500, json: () => Promise.resolve({ error: { message: "fail 1" } }) })
+      .mockResolvedValueOnce({ ok: false, status: 500, json: () => Promise.resolve({ error: { message: "fail 2" } }) })
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ output: [{ content: [{ type: "output_text", text: "last resort" }] }] }) }),
+    );
+    const result = await callLLM("openai", "sk-proj-test", "gpt-5.3", "sys", "usr", true);
+    expect(result).toBe("last resort");
+    expect(fetch).toHaveBeenCalledTimes(3);
+    const body3 = JSON.parse(fetch.mock.calls[2][1].body);
+    expect(body3.model).toBe("gpt-4o");
+  });
+
+  it("does not retry search on AuthError (401)", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: false, status: 401,
+      json: () => Promise.resolve({ error: { message: "invalid key" } }),
+    }));
+    await expect(callLLM("openai", "bad", "gpt-5.3", "sys", "usr", true)).rejects.toThrow("invalid key");
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not retry search on RateLimitError (429)", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: false, status: 429,
+      json: () => Promise.resolve({ error: { message: "rate limited" } }),
+    }));
+    await expect(callLLM("openai", "key", "gpt-5.3", "sys", "usr", true)).rejects.toThrow("rate limited");
+    // fetchWithRetry retries 429 internally (up to maxRetries), but the model fallback should NOT trigger
+    // Since all retries return 429, fetch is called multiple times by fetchWithRetry, but only for the primary model
+    const models = fetch.mock.calls.map((c) => JSON.parse(c[1].body).model);
+    expect(models.every((m) => m === "gpt-5.3")).toBe(true);
+  });
 });
 
 describe("validateKey", () => {
