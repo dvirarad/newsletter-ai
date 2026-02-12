@@ -1,0 +1,9 @@
+export const bg = { minHeight: "100vh", background: "#0f0f1a", color: "#e8e6e1", fontFamily: "'Rubik', sans-serif", direction: "rtl", position: "relative", overflow: "hidden" };
+export const ctn = { maxWidth: 860, margin: "0 auto", padding: "0 24px", position: "relative", zIndex: 2 };
+export const inp = { flex: 1, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "14px 16px", color: "#e8e6e1", fontSize: 15, fontFamily: "'Rubik', sans-serif", outline: "none" };
+export const btnSec = { background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "12px 28px", color: "#a8a29e", fontSize: 15, fontWeight: 500, cursor: "pointer", fontFamily: "'Rubik', sans-serif" };
+export const btnG = (on) => ({ background: on ? "rgba(251,191,36,0.15)" : "rgba(255,255,255,0.03)", border: `1px solid ${on ? "rgba(251,191,36,0.3)" : "rgba(255,255,255,0.06)"}`, borderRadius: 10, padding: "14px 20px", color: on ? "#fbbf24" : "#a8a29e", fontWeight: on ? 600 : 400, fontSize: 14, cursor: "pointer", fontFamily: "'Rubik', sans-serif", transition: "all .2s" });
+export const h2s = { fontFamily: "'Frank Ruhl Libre', serif", fontSize: 36, fontWeight: 800, margin: "0 0 12px", color: "#fafaf9" };
+export const sub = { color: "#a8a29e", fontSize: 16, margin: "0 0 32px", lineHeight: 1.6 };
+export const card = { background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 14, padding: 24 };
+export const tag = (on, col = "#fbbf24") => ({ display: "flex", alignItems: "center", gap: 8, background: on ? `${col}12` : "rgba(255,255,255,0.03)", border: `1px solid ${on ? `${col}35` : "rgba(255,255,255,0.08)"}`, borderRadius: 20, padding: "8px 18px", color: on ? col : "#a8a29e", fontSize: 14, cursor: "pointer", fontFamily: "'Rubik'", transition: "all .2s" });
