@@ -29,6 +29,9 @@ describe("callLLM", () => {
     const [url, opts] = fetch.mock.calls[0];
     expect(url).toBe("https://api.openai.com/v1/chat/completions");
     expect(opts.headers.Authorization).toBe("Bearer sk-proj-test");
+    const body = JSON.parse(opts.body);
+    expect(body.max_completion_tokens).toBe(4000);
+    expect(body.max_tokens).toBeUndefined();
     expect(result).toBe("world");
   });
 

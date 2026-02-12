@@ -181,7 +181,8 @@ Before writing, analyze the examples carefully and extract:
 Write the newsletter AS IF YOU ARE THE ORIGINAL AUTHOR. Do not add your own style. Do not be more formal or less formal than the examples. Do not add sections that don't exist in the examples. Do not skip sections that do exist.
 
 Additional rules:
-- Write in ${lang}, Tone: ${tn}
+- Write in ${lang}
+- Tone: Follow the EXACT tone from the examples. The user's general preference is "${tn}", but the examples' actual tone ALWAYS takes priority. If the examples are sarcastic, be sarcastic. If formal, be formal. Clone the tone you see, not the setting.
 - Real current news from ${tf}
 - Focus: ${selectedTopics.length ? selectedTopics.join(", ") : "all relevant AI topics"}
 - Hebrew: natural spoken, not academic (if the examples are in spoken Hebrew)

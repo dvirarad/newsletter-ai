@@ -64,7 +64,7 @@ export async function callLLM(provider, apiKey, model, sys, usr, search = false)
     const data = await r.json();
     return data.content.filter((b) => b.type === "text").map((b) => b.text).join("\n\n");
   } else {
-    const body = { model, max_tokens: 4000, messages: [{ role: "system", content: sys }, { role: "user", content: usr }] };
+    const body = { model, max_completion_tokens: 4000, messages: [{ role: "system", content: sys }, { role: "user", content: usr }] };
     const r = await fetchWithRetry("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey.trim()}` },
@@ -91,7 +91,7 @@ export async function validateKey(provider, apiKey) {
       const r = await fetchWithTimeout("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey.trim()}` },
-        body: JSON.stringify({ model: "gpt-4o", max_tokens: 10, messages: [{ role: "user", content: "Say OK" }] }),
+        body: JSON.stringify({ model: "gpt-4o", max_completion_tokens: 10, messages: [{ role: "user", content: "Say OK" }] }),
       }, 15000);
       if (r.ok || r.status === 429) return { valid: true };
       const d = await r.json().catch(() => ({}));
@@ -157,7 +157,7 @@ export async function callLLMStreaming(provider, apiKey, model, sys, usr, search
     }
     flushBuffer();
   } else {
-    const body = { model, max_tokens: 4000, messages: [{ role: "system", content: sys }, { role: "user", content: usr }], stream: true };
+    const body = { model, max_completion_tokens: 4000, messages: [{ role: "system", content: sys }, { role: "user", content: usr }], stream: true };
     const r = await fetchWithTimeout("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey.trim()}` },
