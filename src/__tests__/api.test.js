@@ -53,6 +53,36 @@ describe("callLLM", () => {
     const body = JSON.parse(fetch.mock.calls[0][1].body);
     expect(body.tools).toEqual([{ type: "web_search_20250305", name: "web_search" }]);
   });
+
+  it("uses Responses API for openai when search=true", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({
+        output: [{ content: [{ type: "output_text", text: "search result" }] }],
+      }),
+    }));
+    const result = await callLLM("openai", "sk-proj-test", "gpt-5.2", "sys", "usr", true);
+    const [url, opts] = fetch.mock.calls[0];
+    expect(url).toBe("https://api.openai.com/v1/responses");
+    const body = JSON.parse(opts.body);
+    expect(body.tools).toEqual([{ type: "web_search_preview" }]);
+    expect(body.input).toEqual([{ role: "developer", content: "sys" }, { role: "user", content: "usr" }]);
+    expect(body.max_output_tokens).toBe(4000);
+    expect(body.messages).toBeUndefined();
+    expect(body.max_completion_tokens).toBeUndefined();
+    expect(result).toBe("search result");
+  });
+
+  it("uses Chat Completions for openai when search=false", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ choices: [{ message: { content: "no search" } }] }),
+    }));
+    const result = await callLLM("openai", "sk-proj-test", "gpt-4o", "sys", "usr", false);
+    const [url] = fetch.mock.calls[0];
+    expect(url).toBe("https://api.openai.com/v1/chat/completions");
+    expect(result).toBe("no search");
+  });
 });
 
 describe("validateKey", () => {

@@ -10,6 +10,12 @@ vi.mock("../api", () => ({
   validateKey: vi.fn(),
 }));
 
+// Mock pdfUtils to avoid loading real pdfjs-dist in App tests
+vi.mock("../pdfUtils", () => ({
+  isPdf: vi.fn(() => false),
+  extractPdfText: vi.fn(() => Promise.resolve("")),
+}));
+
 describe("App", () => {
   it("renders the landing page initially", () => {
     render(<App />);

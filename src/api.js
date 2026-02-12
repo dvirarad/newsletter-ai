@@ -63,6 +63,16 @@ export async function callLLM(provider, apiKey, model, sys, usr, search = false)
     if (!r.ok) { const d = await r.json().catch(() => ({})); classifyError(r.status, d?.error?.message || `Error ${r.status}`); }
     const data = await r.json();
     return data.content.filter((b) => b.type === "text").map((b) => b.text).join("\n\n");
+  } else if (search) {
+    const body = { model, max_output_tokens: 4000, input: [{ role: "developer", content: sys }, { role: "user", content: usr }], tools: [{ type: "web_search_preview" }] };
+    const r = await fetchWithRetry("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey.trim()}` },
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) { const d = await r.json().catch(() => ({})); classifyError(r.status, d?.error?.message || `Error ${r.status}`); }
+    const data = await r.json();
+    return (data.output || []).flatMap((o) => (o.content || []).filter((c) => c.type === "output_text").map((c) => c.text)).join("\n\n") || "";
   } else {
     const body = { model, max_completion_tokens: 4000, messages: [{ role: "system", content: sys }, { role: "user", content: usr }] };
     const r = await fetchWithRetry("https://api.openai.com/v1/chat/completions", {
@@ -151,6 +161,38 @@ export async function callLLMStreaming(provider, apiKey, model, sys, usr, search
           const evt = JSON.parse(json);
           if (evt.type === "content_block_delta" && evt.delta?.type === "text_delta") {
             bufferChunk(evt.delta.text);
+          }
+        } catch { /* skip malformed */ }
+      }
+    }
+    flushBuffer();
+  } else if (search) {
+    const body = { model, max_output_tokens: 4000, input: [{ role: "developer", content: sys }, { role: "user", content: usr }], tools: [{ type: "web_search_preview" }], stream: true };
+    const r = await fetchWithTimeout("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey.trim()}` },
+      body: JSON.stringify(body),
+      signal,
+    }, 180000);
+    if (!r.ok) { const d = await r.json().catch(() => ({})); classifyError(r.status, d?.error?.message || `Error ${r.status}`); }
+
+    const reader = r.body.getReader();
+    const decoder = new TextDecoder();
+    let partial = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      partial += decoder.decode(value, { stream: true });
+      const lines = partial.split("\n");
+      partial = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        const json = line.slice(6).trim();
+        if (json === "[DONE]") continue;
+        try {
+          const evt = JSON.parse(json);
+          if (evt.type === "response.output_text.delta" && evt.delta) {
+            bufferChunk(evt.delta);
           }
         } catch { /* skip malformed */ }
       }

@@ -4,6 +4,7 @@ import { bg, ctn, btnSec } from "./styles";
 import { callLLM, callLLMStreaming, validateKey as apiValidateKey } from "./api";
 import { canNext } from "./utils";
 import { getUserMessage } from "./errors";
+import { isPdf, extractPdfText } from "./pdfUtils";
 import { loadSettings, saveSettings, clearSettings } from "./storage";
 import Particle from "./components/Particle";
 import Landing from "./components/Landing";
@@ -137,8 +138,14 @@ export default function App() {
     if (newsletters.length + files.length > 10) { setError("ניתן להעלות עד 10 ניוזלטרים"); return; }
     setError("");
     for (const f of files) {
-      const txt = await f.text();
-      setNewsletters((p) => [...p, { name: f.name, content: txt.slice(0, 15000), size: f.size }]);
+      try {
+        const txt = isPdf(f) ? await extractPdfText(f) : await f.text();
+        if (!txt.trim()) { setError(`הקובץ ${f.name} ריק או מכיל רק תמונות`); continue; }
+        setNewsletters((p) => [...p, { name: f.name, content: txt.slice(0, 15000), size: f.size }]);
+      } catch {
+        setError(`שגיאה בקריאת הקובץ ${f.name}`);
+        continue;
+      }
     }
     if (e.target?.value) e.target.value = "";
   };
