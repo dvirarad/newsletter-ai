@@ -260,3 +260,18 @@ export async function callLLMStreaming(provider, apiKey, model, sys, usr, search
     flushBuffer();
   }
 }
+
+export async function generateImage(apiKey, prompt) {
+  const r = await fetchWithRetry(
+    "https://api.openai.com/v1/images/generations",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey.trim()}` },
+      body: JSON.stringify({ model: "gpt-image-1", prompt, n: 1, size: "1792x1024", quality: "auto", output_format: "png" }),
+    },
+    { maxRetries: 1, timeoutMs: 120000 },
+  );
+  if (!r.ok) { const d = await r.json().catch(() => ({})); classifyError(r.status, d?.error?.message || `Image generation error ${r.status}`); }
+  const data = await r.json();
+  return data?.data?.[0]?.b64_json || "";
+}

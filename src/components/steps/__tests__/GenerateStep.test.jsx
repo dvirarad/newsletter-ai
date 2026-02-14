@@ -23,6 +23,11 @@ const defaults = {
   onReset: vi.fn(),
   onCancel: vi.fn(),
   onBack: vi.fn(),
+  generatedImage: "",
+  generatingImage: false,
+  userAdditions: "",
+  setUserAdditions: vi.fn(),
+  onRewriteLinkedin: vi.fn(),
 };
 
 describe("GenerateStep", () => {
@@ -72,5 +77,67 @@ describe("GenerateStep", () => {
   it("shows back button when not generating and no result", () => {
     render(<GenerateStep {...defaults} />);
     expect(screen.getByText("→ חזרה")).toBeInTheDocument();
+  });
+
+  it("shows image generating spinner", () => {
+    render(<GenerateStep {...defaults} result="content" linkedinPost="post" imagePrompt="prompt text" generatingImage={true} />);
+    expect(screen.getByText("יוצר תמונה...")).toBeInTheDocument();
+  });
+
+  it("renders generated image", () => {
+    render(<GenerateStep {...defaults} result="content" linkedinPost="post" imagePrompt="prompt text" generatedImage="abc123" />);
+    const img = screen.getByAltText("Generated LinkedIn image");
+    expect(img).toBeInTheDocument();
+    expect(img.src).toContain("data:image/png;base64,abc123");
+  });
+
+  it("shows download button when image is generated", () => {
+    render(<GenerateStep {...defaults} result="content" linkedinPost="post" imagePrompt="prompt text" generatedImage="abc123" />);
+    expect(screen.getByText("⬇ הורד תמונה")).toBeInTheDocument();
+  });
+
+  it("shows image prompt text even when image exists", () => {
+    render(<GenerateStep {...defaults} result="content" linkedinPost="post" imagePrompt="my prompt" generatedImage="abc123" />);
+    expect(screen.getByText("my prompt")).toBeInTheDocument();
+  });
+
+  it("changes card title when image is generated", () => {
+    render(<GenerateStep {...defaults} result="content" linkedinPost="post" imagePrompt="prompt" generatedImage="abc123" />);
+    expect(screen.getByText("🎨 תמונה שנוצרה")).toBeInTheDocument();
+  });
+
+  it("shows default card title when no image", () => {
+    render(<GenerateStep {...defaults} result="content" linkedinPost="post" imagePrompt="prompt" />);
+    expect(screen.getByText("🎨 פרומפט לתמונה")).toBeInTheDocument();
+  });
+
+  it("renders user additions textarea when linkedinPost exists", () => {
+    render(<GenerateStep {...defaults} result="content" linkedinPost="post" imagePrompt="prompt" />);
+    expect(screen.getByPlaceholderText("כתבו כאן רעיונות, נקודות, או טקסט שתרצו לשלב בפוסט...")).toBeInTheDocument();
+  });
+
+  it("rewrite button is disabled when textarea is empty", () => {
+    render(<GenerateStep {...defaults} result="content" linkedinPost="post" imagePrompt="prompt" />);
+    const btn = screen.getByText("🔄 שכתבו את הפוסט");
+    expect(btn).toBeDisabled();
+  });
+
+  it("rewrite button calls onRewriteLinkedin when textarea has content", async () => {
+    const user = userEvent.setup();
+    const onRewriteLinkedin = vi.fn();
+    render(<GenerateStep {...defaults} result="content" linkedinPost="post" imagePrompt="prompt" userAdditions="my ideas" onRewriteLinkedin={onRewriteLinkedin} />);
+    const btn = screen.getByText("🔄 שכתבו את הפוסט");
+    expect(btn).not.toBeDisabled();
+    await user.click(btn);
+    expect(onRewriteLinkedin).toHaveBeenCalled();
+  });
+
+  it("calls setUserAdditions on textarea input", async () => {
+    const user = userEvent.setup();
+    const setUserAdditions = vi.fn();
+    render(<GenerateStep {...defaults} result="content" linkedinPost="post" imagePrompt="prompt" setUserAdditions={setUserAdditions} />);
+    const textarea = screen.getByPlaceholderText("כתבו כאן רעיונות, נקודות, או טקסט שתרצו לשלב בפוסט...");
+    await user.type(textarea, "a");
+    expect(setUserAdditions).toHaveBeenCalled();
   });
 });

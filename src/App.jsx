@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { PROVIDERS, TIMEFRAMES } from "./constants";
 import { bg, ctn, btnSec } from "./styles";
-import { callLLM, callLLMStreaming, validateKey as apiValidateKey } from "./api";
+import { callLLM, callLLMStreaming, validateKey as apiValidateKey, generateImage } from "./api";
 import { canNext } from "./utils";
 import { getUserMessage } from "./errors";
 import { isPdf, extractPdfText } from "./pdfUtils";
@@ -43,6 +43,9 @@ export default function App() {
   const [linkedinPost, setLinkedinPost] = useState("");
   const [imagePrompt, setImagePrompt] = useState("");
   const [generatingLinkedin, setGeneratingLinkedin] = useState(false);
+  const [generatedImage, setGeneratedImage] = useState("");
+  const [generatingImage, setGeneratingImage] = useState(false);
+  const [userAdditions, setUserAdditions] = useState("");
   const abortRef = useRef(null);
   const saveTimerRef = useRef(null);
 
@@ -244,16 +247,79 @@ Rules:
 Also generate an image prompt (in English) for an AI image generator that would make a compelling visual for this LinkedIn post. The prompt should describe a clean, professional, visually striking image suitable for LinkedIn.
 
 Return ONLY valid JSON: {"post": "...", "imagePrompt": "..."}`;
+    let parsedImagePrompt = "";
     try {
       const raw = await callLLM(provider, apiKey, selectedModel, sys, result, false);
       const clean = raw.replace(/```json|```/g, "").trim();
       const parsed = JSON.parse(clean);
       setLinkedinPost(parsed.post || "");
       setImagePrompt(parsed.imagePrompt || "");
+      parsedImagePrompt = parsed.imagePrompt || "";
     } catch (e) {
       setError(getUserMessage(e));
+      setGeneratingLinkedin(false);
+      return;
     }
     setGeneratingLinkedin(false);
+    // Auto-generate image for OpenAI users
+    if (provider === "openai" && parsedImagePrompt) {
+      setGeneratingImage(true);
+      try {
+        const b64 = await generateImage(apiKey, parsedImagePrompt);
+        setGeneratedImage(b64);
+      } catch (imgErr) {
+        setError(getUserMessage(imgErr));
+      }
+      setGeneratingImage(false);
+    }
+  };
+
+  const rewriteLinkedin = async () => {
+    if (!userAdditions.trim()) return;
+    setGeneratingLinkedin(true);
+    setGeneratedImage("");
+    setGeneratingImage(false);
+    const lang = language === "he" ? "Hebrew" : "English";
+    const sys = `You are a LinkedIn content strategist. You have an existing LinkedIn post based on a newsletter. The user wants to add their own ideas/text to the post. Rewrite the post to naturally incorporate the user's additions while keeping the same style and tone.
+
+Rules:
+- Write the post in ${lang}
+- Keep it 150-250 words — punchy, with a hook opening
+- Use short paragraphs (1-2 sentences each) for mobile readability
+- Naturally weave the user's additions into the existing post content
+- End with a thought-provoking question or call to action
+- No hashtags in the body; add 3-5 relevant hashtags at the end
+- Do NOT include links (the user will add their own)
+
+Also generate a NEW image prompt (in English) for an AI image generator that matches the updated post content.
+
+Return ONLY valid JSON: {"post": "...", "imagePrompt": "..."}`;
+    const usr = `ORIGINAL NEWSLETTER:\n${result}\n\nCURRENT LINKEDIN POST:\n${linkedinPost}\n\nUSER'S ADDITIONS TO INCORPORATE:\n${userAdditions}`;
+    let parsedImagePrompt = "";
+    try {
+      const raw = await callLLM(provider, apiKey, selectedModel, sys, usr, false);
+      const clean = raw.replace(/```json|```/g, "").trim();
+      const parsed = JSON.parse(clean);
+      setLinkedinPost(parsed.post || "");
+      setImagePrompt(parsed.imagePrompt || "");
+      parsedImagePrompt = parsed.imagePrompt || "";
+      setUserAdditions("");
+    } catch (e) {
+      setError(getUserMessage(e));
+      setGeneratingLinkedin(false);
+      return;
+    }
+    setGeneratingLinkedin(false);
+    if (provider === "openai" && parsedImagePrompt) {
+      setGeneratingImage(true);
+      try {
+        const b64 = await generateImage(apiKey, parsedImagePrompt);
+        setGeneratedImage(b64);
+      } catch (imgErr) {
+        setError(getUserMessage(imgErr));
+      }
+      setGeneratingImage(false);
+    }
   };
 
   const download = () => {
@@ -277,8 +343,8 @@ Return ONLY valid JSON: {"post": "...", "imagePrompt": "..."}`;
           {step === 2 && <UploadStep newsletters={newsletters} error={error} onFiles={handleFiles} onRemove={(i) => setNewsletters((p) => p.filter((_, j) => j !== i))} />}
           {step === 3 && <SourcesStep sources={sources} setSources={setSources} sourceInput={sourceInput} setSourceInput={setSourceInput} searchQuery={searchQuery} setSearchQuery={setSearchQuery} searchResults={searchResults} searching={searching} onSearch={searchSources} onAddSource={addSource} />}
           {step === 4 && <SettingsStep timeframe={timeframe} setTimeframe={setTimeframe} selectedTopics={selectedTopics} setSelectedTopics={setSelectedTopics} language={language} setLanguage={setLanguage} tone={tone} setTone={setTone} />}
-          {step === 5 && <GenerateStep provider={provider} selectedModel={selectedModel} newsletters={newsletters} sources={sources} timeframe={timeframe} language={language} tone={tone} generating={generating} genProgress={genProgress} result={result} error={error} copied={copied} streaming={streaming} onGenerate={generate} onDownload={download} onCopy={() => { navigator.clipboard.writeText(result); setCopied(true); setTimeout(() => setCopied(false), 2000); }} onReset={() => { setResult(""); setGenProgress(0); setLinkedinPost(""); setImagePrompt(""); }}
-              linkedinPost={linkedinPost} imagePrompt={imagePrompt} generatingLinkedin={generatingLinkedin} onGenerateLinkedin={generateLinkedin} onCancel={handleCancel} onBack={() => setStep(4)} />}
+          {step === 5 && <GenerateStep provider={provider} selectedModel={selectedModel} newsletters={newsletters} sources={sources} timeframe={timeframe} language={language} tone={tone} generating={generating} genProgress={genProgress} result={result} error={error} copied={copied} streaming={streaming} onGenerate={generate} onDownload={download} onCopy={() => { navigator.clipboard.writeText(result); setCopied(true); setTimeout(() => setCopied(false), 2000); }} onReset={() => { setResult(""); setGenProgress(0); setLinkedinPost(""); setImagePrompt(""); setGeneratedImage(""); setGeneratingImage(false); setUserAdditions(""); }}
+              linkedinPost={linkedinPost} imagePrompt={imagePrompt} generatingLinkedin={generatingLinkedin} onGenerateLinkedin={generateLinkedin} generatedImage={generatedImage} generatingImage={generatingImage} userAdditions={userAdditions} setUserAdditions={setUserAdditions} onRewriteLinkedin={rewriteLinkedin} onCancel={handleCancel} onBack={() => setStep(4)} />}
           {step >= 1 && step <= 4 && <WizardNav step={step} setStep={setStep} keyValid={keyValid} newsletterCount={newsletters.length} />}
         </div>
       </div>

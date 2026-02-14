@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { callLLM, validateKey } from "../api";
+import { callLLM, validateKey, generateImage } from "../api";
 
 beforeEach(() => {
   vi.restoreAllMocks();
@@ -160,5 +160,53 @@ describe("validateKey", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, status: 200 }));
     const res = await validateKey("openai", "sk-proj-test");
     expect(res.valid).toBe(true);
+  });
+});
+
+describe("generateImage", () => {
+  it("sends correct endpoint, model and params", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ data: [{ b64_json: "abc123" }] }),
+    }));
+    const result = await generateImage("sk-proj-test", "A futuristic city");
+    expect(fetch).toHaveBeenCalledTimes(1);
+    const [url, opts] = fetch.mock.calls[0];
+    expect(url).toBe("https://api.openai.com/v1/images/generations");
+    expect(opts.headers.Authorization).toBe("Bearer sk-proj-test");
+    const body = JSON.parse(opts.body);
+    expect(body.model).toBe("gpt-image-1");
+    expect(body.prompt).toBe("A futuristic city");
+    expect(body.n).toBe(1);
+    expect(body.size).toBe("1792x1024");
+    expect(body.output_format).toBe("png");
+    expect(result).toBe("abc123");
+  });
+
+  it("throws AuthError on 401", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: false,
+      status: 401,
+      json: () => Promise.resolve({ error: { message: "invalid key" } }),
+    }));
+    await expect(generateImage("bad", "prompt")).rejects.toThrow("invalid key");
+  });
+
+  it("throws on generic error status", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: () => Promise.resolve({}),
+    }));
+    await expect(generateImage("key", "prompt")).rejects.toThrow("Image generation error 500");
+  });
+
+  it("returns empty string when b64_json is missing", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ data: [{}] }),
+    }));
+    const result = await generateImage("key", "prompt");
+    expect(result).toBe("");
   });
 });

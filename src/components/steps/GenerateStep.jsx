@@ -1,7 +1,7 @@
 import { PROVIDERS, TIMEFRAMES } from "../../constants";
 import { card, btnG, btnSec } from "../../styles";
 
-export default function GenerateStep({ provider, selectedModel, newsletters, sources, timeframe, language, tone, generating, genProgress, result, error, copied, streaming, onGenerate, onDownload, onCopy, onReset, onCancel, onBack, linkedinPost, imagePrompt, generatingLinkedin, onGenerateLinkedin }) {
+export default function GenerateStep({ provider, selectedModel, newsletters, sources, timeframe, language, tone, generating, genProgress, result, error, copied, streaming, onGenerate, onDownload, onCopy, onReset, onCancel, onBack, linkedinPost, imagePrompt, generatingLinkedin, onGenerateLinkedin, generatedImage, generatingImage, userAdditions, setUserAdditions, onRewriteLinkedin }) {
   const P = PROVIDERS[provider];
   return (
     <div>
@@ -92,12 +92,41 @@ export default function GenerateStep({ provider, selectedModel, newsletters, sou
                 <div style={{ color: "#d6d3d1", fontSize: 15, lineHeight: 1.8, whiteSpace: "pre-wrap" }}>{linkedinPost}</div>
               </div>
 
+              <div style={{ background: "rgba(251,191,36,0.05)", border: "1px solid rgba(251,191,36,0.2)", borderRadius: 14, padding: 24, marginBottom: 16 }}>
+                <div style={{ fontSize: 16, fontWeight: 700, color: "#fbbf24", marginBottom: 14 }}>✏️ הוסיפו טקסט משלכם</div>
+                <textarea
+                  value={userAdditions}
+                  onChange={(e) => setUserAdditions(e.target.value)}
+                  placeholder="כתבו כאן רעיונות, נקודות, או טקסט שתרצו לשלב בפוסט..."
+                  style={{ width: "100%", minHeight: 100, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "14px 16px", color: "#e8e6e1", fontSize: 15, fontFamily: "'Rubik', sans-serif", outline: "none", resize: "vertical", lineHeight: 1.7 }}
+                  onFocus={(e) => e.target.style.borderColor = "rgba(251,191,36,0.4)"}
+                  onBlur={(e) => e.target.style.borderColor = "rgba(255,255,255,0.1)"}
+                />
+                <button
+                  onClick={onRewriteLinkedin}
+                  disabled={!userAdditions.trim() || generatingLinkedin}
+                  style={{ marginTop: 12, background: userAdditions.trim() ? "linear-gradient(135deg, #b45309, #fbbf24)" : "rgba(255,255,255,0.05)", color: userAdditions.trim() ? "#0f0f1a" : "#78716c", border: "none", padding: "12px 24px", fontSize: 14, fontWeight: 700, fontFamily: "'Rubik'", borderRadius: 10, cursor: userAdditions.trim() ? "pointer" : "default" }}
+                >🔄 שכתבו את הפוסט</button>
+              </div>
+
               <div style={{ background: "rgba(251,191,36,0.05)", border: "1px solid rgba(251,191,36,0.2)", borderRadius: 14, padding: 24 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: "#fbbf24" }}>🎨 פרומפט לתמונה</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: "#fbbf24" }}>{generatedImage ? "🎨 תמונה שנוצרה" : "🎨 פרומפט לתמונה"}</div>
                   <button onClick={() => { navigator.clipboard.writeText(imagePrompt); }} style={{ ...btnSec, fontSize: 13, padding: "6px 14px" }}>📋 העתקה</button>
                 </div>
-                <div style={{ color: "#a8a29e", fontSize: 14, lineHeight: 1.7, whiteSpace: "pre-wrap", fontFamily: "'JetBrains Mono', monospace" }}>{imagePrompt}</div>
+                <div style={{ color: "#a8a29e", fontSize: 14, lineHeight: 1.7, whiteSpace: "pre-wrap", fontFamily: "'JetBrains Mono', monospace", marginBottom: generatingImage || generatedImage ? 14 : 0 }}>{imagePrompt}</div>
+                {generatingImage && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, color: "#fbbf24", fontSize: 14, fontWeight: 600 }}>
+                    <div style={{ width: 18, height: 18, border: "2px solid #fbbf24", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 1s linear infinite" }} />
+                    יוצר תמונה...
+                  </div>
+                )}
+                {generatedImage && (
+                  <div>
+                    <img src={`data:image/png;base64,${generatedImage}`} alt="Generated LinkedIn image" style={{ width: "100%", borderRadius: 10, marginBottom: 12 }} />
+                    <button onClick={() => { const a = document.createElement("a"); a.href = `data:image/png;base64,${generatedImage}`; a.download = `linkedin-image-${new Date().toISOString().split("T")[0]}.png`; a.click(); }} style={{ ...btnSec, fontSize: 13, padding: "8px 16px" }}>⬇ הורד תמונה</button>
+                  </div>
+                )}
               </div>
             </div>
           )}
